@@ -1,0 +1,55 @@
+name: Daily UniMail Digest
+
+# GitHub cron is UTC-only and ignores DST. Trick: schedule BOTH candidate UTC
+# hours and let a gate step run the digest only when it's 07:00 in Berlin.
+# Exactly one of the two fires per day; the other exits in ~2 seconds.
+# (If you don't care about the 1h seasonal drift, delete one cron line and
+# the gate step — everything else works unchanged.)
+on:
+  schedule:
+    - cron: "0 5 * * *"   # = 07:00 Berlin during CEST (summer)
+    - cron: "0 6 * * *"   # = 07:00 Berlin during CET  (winter)
+  workflow_dispatch:       # manual "Run workflow" button (always bypasses gate)
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10    # retries with backoff need more headroom than 5
+    steps:
+      - name: DST gate (only proceed at 07:00 Europe/Berlin)
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || \
+             [ "$(TZ=Europe/Berlin date +%H)" = "07" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pip install "openai>=1.40" "requests>=2.31,<3"
+
+      - name: Run digest
+        if: steps.gate.outputs.run == 'true'
+        env:
+          # IMAP host is not secret; store it as a repo *variable*
+          # (Settings → Secrets and variables → Actions → Variables).
+          IMAP_SERVER: ${{ vars.IMAP_SERVER }}
+          TU_USER: ${{ secrets.TU_USER }}
+          TU_PASS: ${{ secrets.TU_PASS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Optional repo *variable* (Settings → Secrets and variables →
+          # Actions → Variables). "always" (default) or "urgent".
+          NOTIFY_MODE: ${{ vars.NOTIFY_MODE }}
+        run: python check_unimail_gpt.py
