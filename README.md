@@ -1,4 +1,4 @@
-# imap-gpt-digest
+# daily-email-summary
 
 A daily email digest for university (or any IMAP) mailboxes. It fetches your
 unread mail, uses a GPT model to triage it into urgency buckets and extract a
