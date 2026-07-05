@@ -96,12 +96,13 @@ gh variable set IMAP_SERVER --body "imap.example.edu"
 
 ### 4. Run it
 
-- **Manually:** Actions tab → *Daily UniMail Digest* → **Run workflow**, or
+- **Manually:** Actions tab → *Daily Email Summary* → **Run workflow**, or
   `gh workflow run daily-digest.yml`.
-- **On schedule:** it runs every morning at **07:00 Europe/Berlin**. GitHub
-  cron is UTC-only and ignores daylight saving, so the workflow schedules both
-  candidate UTC hours and a gate step runs the digest only at the right local
-  hour — exactly one fires per day. Adjust the crons in
+- **On schedule:** it runs once every morning (cron `0 5 * * *` = 05:00 UTC,
+  i.e. 07:00 Berlin in summer / 06:00 in winter). Note that GitHub's scheduled
+  runs are best-effort and are often delayed by 1–3 hours under load, so treat
+  the arrival time as "some time in the morning" rather than exact. Adjust the
+  cron in
   [`.github/workflows/daily-digest.yml`](.github/workflows/daily-digest.yml)
   for your timezone.
 
